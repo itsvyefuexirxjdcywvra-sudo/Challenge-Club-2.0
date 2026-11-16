@@ -109,6 +109,7 @@ footer{text-align:center;color:var(--muted);padding:30px}
    <option value="math">➗ ریاضی سریع</option>
    <option value="typing">🔤 تایپ سریع</option>
    <option value="guess">🔢 حدس عدد رقابتی</option>
+   <option value="color">🎨 چالش رنگ رقابتی</option>
   </select>
  </div>
 
@@ -169,6 +170,16 @@ footer{text-align:center;color:var(--muted);padding:30px}
    <button class="secondary" onclick="newGuessRound()">دور جدید</button>
   </div>
 
+  <div id="onlineColor" class="hidden">
+   <h2>🎨 چالش رنگ رقابتی</h2>
+   <p style="color:var(--muted);font-size:13px">رنگ نوشته را انتخاب کن — سریع‌تر = امتیاز بیشتر!</p>
+   <p id="colorRoundInfo" style="color:var(--cyan);font-weight:700;margin:10px 0">دور ۱ از ۵</p>
+   <div id="colorWordDisplay" style="font-size:48px;margin:20px 0;font-weight:800">-</div>
+   <div class="game-buttons" id="colorChoiceBtns"></div>
+   <div id="colorResult" class="game-result" style="min-height:30px"></div>
+   <button class="secondary" onclick="newColorRound()">دور بعد</button>
+  </div>
+
   <div style="margin-top:15px">
    <button class="secondary" onclick="requestRematch()">🔄 درخواست بازی مجدد</button>
   </div>
@@ -215,7 +226,7 @@ footer{text-align:center;color:var(--muted);padding:30px}
 
 <script>
 /* ============================================================
-   🧩 SHARED — data, save, updateUI, AudioFX, toast, reward
+   🧩 SHARED
    ============================================================ */
 const defaultData={coins:100,score:0,xp:0,played:0,wins:0,name:"بازیکن",avatar:"😎",daily:0,dailyClaimed:false,sound:true,owned:[],equipped:"default"};
 const STORAGE_KEY="challengeClubSave";
@@ -308,6 +319,9 @@ let duelAnswer=null,duelResolved=true;
 const TYPING_WORDS=["برنامه","کتاب","دریا","خورشید","موسیقی","شادی","دوستی","پرواز","آسمان","ابر","پنجره","ستاره","باران","خانه","خیابان","پرنده","کوچک","سفید","سبز","زیبا"];
 let typingWord="",typingResolved=true;
 let guessSecret=null,guessResolved=true;
+const COLOR_PALETTE=[{name:"قرمز",code:"#ff4040"},{name:"آبی",code:"#408cff"},{name:"سبز",code:"#3bd98a"},{name:"زرد",code:"#ffd43b"}];
+const COLOR_ROUNDS_TOTAL=5;
+let colorRoundIndex=0,colorMyWins=0,colorOppWins=0,colorResolved=true,colorRoundData=null,colorMatchOver=false;
 let localStream=null,voiceCall=null,voiceEnabled=false,opponentVoiceReady=false,pttActive=false;
 let voiceAnalysisCtx=null,voiceAnalyser=null,speakingRaf=0,opponentSpeakingState=false;
 let pingInterval=null;
@@ -407,6 +421,7 @@ function declineRematch(){if(!conn||!conn.open)return;conn.send({type:"rematch-d
 function resetFullSession(){
  myMove=null;opponentMove=null;roundLocked=false;myOnlineScore=0;opponentOnlineScore=0;
  duelResolved=true;duelAnswer=null;typingResolved=true;typingWord="";guessResolved=true;guessSecret=null;
+ colorRoundIndex=0;colorMyWins=0;colorOppWins=0;colorResolved=true;colorRoundData=null;colorMatchOver=false;
  updateOnlineScoreDisplay();
  document.getElementById("roundResult").textContent="انتخابت رو انجام بده!";
  document.getElementById("mathQuestion").textContent="-";
@@ -417,19 +432,25 @@ function resetFullSession(){
  document.getElementById("typingSubmitBtn").disabled=true;document.getElementById("typingResult").textContent="";
  document.getElementById("guessAnswer").value="";document.getElementById("guessAnswer").disabled=true;
  document.getElementById("guessSubmitBtn").disabled=true;document.getElementById("guessResult").textContent="";
+ document.getElementById("colorRoundInfo").textContent="دور ۱ از ۵";
+ document.getElementById("colorWordDisplay").textContent="-";
+ document.getElementById("colorWordDisplay").style.color="";
+ document.getElementById("colorChoiceBtns").innerHTML="";
+ document.getElementById("colorResult").textContent="";
  if(isHost&&!amISpectator){
   if(currentOnlineGame==="math")startDuelRound();
   else if(currentOnlineGame==="typing")startTypingRound();
   else if(currentOnlineGame==="guess")startGuessRound();
+  else if(currentOnlineGame==="color")startColorRound();
  }
 }
 function updateOnlineScoreDisplay(){document.getElementById("onlineScore").textContent="امتیاز تو: "+myOnlineScore+" | حریف: "+opponentOnlineScore;}
 
 function hostSelectGame(game){
  if(!isHost||!conn||!conn.open){showToast("فقط میزبان می‌تواند بازی را عوض کند","warn");return;}
- if(!["rps","math","typing","guess"].includes(game))return;
+ if(!["rps","math","typing","guess","color"].includes(game))return;
  broadcast({type:"select-game",game});switchOnlineGame(game);showToast("بازی انتخاب شد","info");notifySpectators("🎮 بازی تغییر کرد","");
- if(game==="math")startDuelRound();else if(game==="typing")startTypingRound();else if(game==="guess")startGuessRound();
+ if(game==="math")startDuelRound();else if(game==="typing")startTypingRound();else if(game==="guess")startGuessRound();else if(game==="color")startColorRound();
 }
 function switchOnlineGame(game){
  currentOnlineGame=game;
@@ -437,9 +458,11 @@ function switchOnlineGame(game){
  document.getElementById("onlineMath").classList.toggle("hidden",game!=="math");
  document.getElementById("onlineTyping").classList.toggle("hidden",game!=="typing");
  document.getElementById("onlineGuess").classList.toggle("hidden",game!=="guess");
+ document.getElementById("onlineColor").classList.toggle("hidden",game!=="color");
  myMove=null;opponentMove=null;roundLocked=false;
  document.getElementById("roundResult").textContent="انتخابت رو انجام بده!";
  duelResolved=true;duelAnswer=null;typingResolved=true;typingWord="";guessResolved=true;guessSecret=null;
+ colorRoundIndex=0;colorMyWins=0;colorOppWins=0;colorResolved=true;colorRoundData=null;colorMatchOver=false;
  document.getElementById("mathQuestion").textContent="-";
  document.getElementById("mathOnlineAnswer").value="";document.getElementById("mathOnlineAnswer").disabled=true;
  document.getElementById("mathSubmitBtn").disabled=true;document.getElementById("mathOnlineResult").textContent="";
@@ -448,6 +471,11 @@ function switchOnlineGame(game){
  document.getElementById("typingSubmitBtn").disabled=true;document.getElementById("typingResult").textContent="";
  document.getElementById("guessAnswer").value="";document.getElementById("guessAnswer").disabled=true;
  document.getElementById("guessSubmitBtn").disabled=true;document.getElementById("guessResult").textContent="";
+ document.getElementById("colorRoundInfo").textContent="دور ۱ از ۵";
+ document.getElementById("colorWordDisplay").textContent="-";
+ document.getElementById("colorWordDisplay").style.color="";
+ document.getElementById("colorChoiceBtns").innerHTML="";
+ document.getElementById("colorResult").textContent="";
  myOnlineScore=0;opponentOnlineScore=0;updateOnlineScoreDisplay();
 }
 
@@ -554,6 +582,103 @@ function handleGuessResult(winner){
 }
 function newGuessRound(){if(!conn||!conn.open)return;if(isHost)startGuessRound();else{conn.send({type:"guess-request"});document.getElementById("guessResult").textContent="درخواست دور جدید ارسال شد...";}}
 
+/* --- چالش رنگ رقابتی --- */
+function generateColorRound(){
+ let word,ink;
+ do{
+  word=COLOR_PALETTE[Math.floor(Math.random()*COLOR_PALETTE.length)];
+  ink=COLOR_PALETTE[Math.floor(Math.random()*COLOR_PALETTE.length)];
+ }while(word.name===ink.name);
+ const options=[...COLOR_PALETTE].sort(()=>Math.random()-.5).map(c=>c.name);
+ return {word:word.name,ink:ink.name,inkCode:ink.code,options,answer:ink.name};
+}
+
+function startColorRound(){
+ if(!isHost||!conn||!conn.open)return;
+ if(colorMatchOver){colorRoundIndex=0;colorMyWins=0;colorOppWins=0;colorMatchOver=false;}
+ colorRoundIndex++;
+ const data=generateColorRound();
+ broadcast({type:"color-start",round:colorRoundIndex,data});
+ showColorProblem(colorRoundIndex,data);
+}
+
+function showColorProblem(round,data){
+ if(amISpectator)return;
+ colorRoundData=data;colorResolved=false;
+ document.getElementById("colorRoundInfo").textContent=
+  "دور "+round+" از "+COLOR_ROUNDS_TOTAL+" | تو: "+colorMyWins+" — حریف: "+colorOppWins;
+ const wordEl=document.getElementById("colorWordDisplay");
+ wordEl.textContent=data.word;
+ wordEl.style.color=data.inkCode;
+ const btns=document.getElementById("colorChoiceBtns");
+ btns.innerHTML="";
+ data.options.forEach(opt=>{
+  const b=document.createElement("button");
+  b.textContent=opt;
+  b.onclick=()=>submitColorAnswer(opt);
+  btns.appendChild(b);
+ });
+ document.getElementById("colorResult").textContent="سریع‌ترین پاسخ درست برنده است!";
+}
+
+function submitColorAnswer(choice){
+ if(colorResolved||amISpectator||!colorRoundData)return;
+ if(choice!==colorRoundData.answer){
+  document.getElementById("colorResult").textContent="اشتباه! دوباره تلاش کن.";
+  AudioFX.lose();
+  return;
+ }
+ if(isHost){
+  document.getElementById("colorResult").textContent="ثبت شد...";
+  setTimeout(()=>{
+   if(colorResolved)return;
+   broadcast({type:"color-result",winner:"host",round:colorRoundIndex});
+   applyColorResult("host",colorRoundIndex);
+  },250);
+ }else{
+  document.getElementById("colorResult").textContent="پاسخ ثبت شد؛ منتظر تأیید میزبان...";
+  conn.send({type:"color-answer",round:colorRoundIndex,choice});
+ }
+}
+
+function applyColorResult(winner,round){
+ if(colorResolved)return;
+ colorResolved=true;
+ document.querySelectorAll("#colorChoiceBtns button").forEach(b=>b.disabled=true);
+ const iWon=(winner==="host")===isHost;
+ if(iWon){
+  colorMyWins++;
+  document.getElementById("colorResult").textContent="🎉 این دور رو بردی! +20 امتیاز";
+  reward(20,true);
+  AudioFX.win();
+ }else{
+  colorOppWins++;
+  document.getElementById("colorResult").textContent="😅 حریف این دور رو برد! +5 امتیاز";
+  reward(5,false);
+  AudioFX.lose();
+ }
+ document.getElementById("colorRoundInfo").textContent=
+  "دور "+round+" از "+COLOR_ROUNDS_TOTAL+" | تو: "+colorMyWins+" — حریف: "+colorOppWins;
+
+ if(round>=COLOR_ROUNDS_TOTAL){
+  colorMatchOver=true;
+  let matchMsg="";
+  if(colorMyWins>colorOppWins){matchMsg=" | 🏆 برنده مسابقه: تو! +30 امتیاز جایزه";reward(30,true);AudioFX.win();}
+  else if(colorOppWins>colorMyWins){matchMsg=" | برنده مسابقه: حریف";}
+  else{matchMsg=" | مساوی شدید!";}
+  document.getElementById("colorResult").textContent+=matchMsg;
+ }
+
+ notifySpectators("دور "+round+": "+(iWon?data.name:opponentDisplayName)+" برنده شد","color");
+}
+
+function newColorRound(){
+ if(!conn||!conn.open)return;
+ if(isHost)startColorRound();
+ else{conn.send({type:"color-request"});document.getElementById("colorResult").textContent="درخواست دور جدید ارسال شد...";}
+}
+
+/* --- Voice --- */
 async function enableVoice(){
  if(voiceEnabled||amISpectator)return;
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){showToast("مرورگر از میکروفون پشتیبانی نمی‌کند","warn");return;}
@@ -610,6 +735,7 @@ function setupPeerCallHandler(p){
  });
 }
 
+/* --- Connection core --- */
 function roomStatus(msg){document.getElementById("roomStatus").textContent=msg;}
 function makeRoomCode(){return String(Math.floor(100000+Math.random()*900000));}
 function createRoom(){
@@ -688,7 +814,7 @@ function setupRoomConnection(connection,role){
 
 function handleRoomMessage(message,fromConn){
  const isPrimaryPlayer=fromConn===conn;
- const gameTypes=["move","duel-start","duel-answer","duel-result","duel-request","typing-start","typing-answer","typing-result","typing-request","guess-start","guess-answer","guess-result","guess-request","again","rematch-request","rematch-accept","rematch-decline","select-game","voice-ready","voice-off"];
+ const gameTypes=["move","duel-start","duel-answer","duel-result","duel-request","typing-start","typing-answer","typing-result","typing-request","guess-start","guess-answer","guess-result","guess-request","color-start","color-answer","color-result","color-request","again","rematch-request","rematch-accept","rematch-decline","select-game","voice-ready","voice-off"];
  if(!isPrimaryPlayer&&gameTypes.includes(message.type))return;
  if(amISpectator&&!["chat","reaction","spectator-update","spectator-count"].includes(message.type))return;
  switch(message.type){
@@ -718,6 +844,7 @@ function handleRoomMessage(message,fromConn){
     document.getElementById("onlineMath").classList.toggle("hidden",game!=="math");
     document.getElementById("onlineTyping").classList.toggle("hidden",game!=="typing");
     document.getElementById("onlineGuess").classList.toggle("hidden",game!=="guess");
+    document.getElementById("onlineColor").classList.toggle("hidden",game!=="color");
    }
    document.querySelectorAll("#onlineGame input, #onlineGame .primary, #onlineGame .choice").forEach(el=>{if(el.id!=="leaveRoomBtn")el.disabled=true;});
    document.getElementById("roundResult").textContent="👁️ حالت تماشاچی — بازی در جریان است";
@@ -730,6 +857,7 @@ function handleRoomMessage(message,fromConn){
     if(message.game==="math")document.getElementById("mathOnlineResult").textContent=String(message.text||"");
     if(message.game==="typing")document.getElementById("typingResult").textContent=String(message.text||"");
     if(message.game==="guess")document.getElementById("guessResult").textContent=String(message.text||"");
+    if(message.game==="color")document.getElementById("colorResult").textContent=String(message.text||"");
    }
    break;
   case "chat":
@@ -751,7 +879,7 @@ function handleRoomMessage(message,fromConn){
   case "rematch-request":showRematchPrompt(opponentDisplayName);break;
   case "rematch-accept":hideRematchPrompt();resetFullSession();showToast("حریف قبول کرد! بازی از نو شروع شد","success");if(isHost)notifySpectators("🔄 بازی از نو شروع شد","");break;
   case "rematch-decline":hideRematchPrompt();showToast("حریف درخواست را رد کرد","warn");break;
-  case "select-game":if(!["rps","math","typing","guess"].includes(message.game))return;switchOnlineGame(message.game);document.getElementById("gameSelect").value=message.game;showToast("میزبان بازی را تغییر داد","info");break;
+  case "select-game":if(!["rps","math","typing","guess","color"].includes(message.game))return;switchOnlineGame(message.game);document.getElementById("gameSelect").value=message.game;showToast("میزبان بازی را تغییر داد","info");break;
   case "duel-start":if(!isHost&&!amISpectator)showDuelProblem(Number(message.a),Number(message.b));break;
   case "duel-answer":
    if(isHost&&!duelResolved){
@@ -786,6 +914,24 @@ function handleRoomMessage(message,fromConn){
    break;
   case "guess-result":if(!isHost&&!guessResolved&&!amISpectator)handleGuessResult(message.winner);break;
   case "guess-request":if(isHost)startGuessRound();break;
+  case "color-start":
+   if(!isHost&&!amISpectator)showColorProblem(Number(message.round||1),message.data);
+   break;
+  case "color-answer":
+   if(isHost&&!colorResolved&&Number(message.round)===colorRoundIndex){
+    if(colorRoundData&&message.choice===colorRoundData.answer){
+     if(colorResolved)return;
+     broadcast({type:"color-result",winner:"guest",round:colorRoundIndex});
+     applyColorResult("guest",colorRoundIndex);
+    }
+   }
+   break;
+  case "color-result":
+   if(!isHost&&!colorResolved)applyColorResult(message.winner,Number(message.round||colorRoundIndex));
+   break;
+  case "color-request":
+   if(isHost)startColorRound();
+   break;
   case "voice-ready":
    opponentVoiceReady=true;if(isHost)tryHostVoiceCall();
    if(!voiceEnabled)document.getElementById("voiceStatus").textContent="حریف صدایش را فعال کرد.";
@@ -861,7 +1007,9 @@ function cleanupRoom(resetUI=true){
  roomCode="";myMove=null;opponentMove=null;roundLocked=false;
  myOnlineScore=0;opponentOnlineScore=0;opponentDisplayName="حریف";
  currentOnlineGame="rps";duelAnswer=null;duelResolved=true;
- typingWord="";typingResolved=true;guessSecret=null;guessResolved=true;amISpectator=false;
+ typingWord="";typingResolved=true;guessSecret=null;guessResolved=true;
+ colorRoundIndex=0;colorMyWins=0;colorOppWins=0;colorResolved=true;colorRoundData=null;colorMatchOver=false;
+ amISpectator=false;
  const audio=document.getElementById("remoteAudio");if(audio)audio.srcObject=null;
  const fe=document.getElementById("floatingEmojis");if(fe)fe.innerHTML="";
  updateSpectatorCount(0);
@@ -883,6 +1031,7 @@ function cleanupRoom(resetUI=true){
   document.getElementById("onlineMath").classList.add("hidden");
   document.getElementById("onlineTyping").classList.add("hidden");
   document.getElementById("onlineGuess").classList.add("hidden");
+  document.getElementById("onlineColor").classList.add("hidden");
   document.getElementById("gameSelect").value="rps";
   document.getElementById("mathQuestion").textContent="-";
   document.getElementById("mathOnlineAnswer").value="";document.getElementById("mathOnlineAnswer").disabled=true;
@@ -892,6 +1041,11 @@ function cleanupRoom(resetUI=true){
   document.getElementById("typingSubmitBtn").disabled=true;document.getElementById("typingResult").textContent="";
   document.getElementById("guessAnswer").value="";document.getElementById("guessAnswer").disabled=true;
   document.getElementById("guessSubmitBtn").disabled=true;document.getElementById("guessResult").textContent="";
+  document.getElementById("colorRoundInfo").textContent="دور ۱ از ۵";
+  document.getElementById("colorWordDisplay").textContent="-";
+  document.getElementById("colorWordDisplay").style.color="";
+  document.getElementById("colorChoiceBtns").innerHTML="";
+  document.getElementById("colorResult").textContent="";
   document.getElementById("voiceEnableBtn").classList.remove("hidden");
   document.getElementById("voiceDisableBtn").classList.add("hidden");
   document.getElementById("pttBtn").classList.add("hidden");
