@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#8957ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="چالش‌کلاب">
+<title>چالش‌کلاب | Challenge Club</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap');
+:root{--bg:#0b0b14;--panel:#151525;--panel2:#1d1d32;--purple:#8957ff;--pink:#ed4da6;--cyan:#35d8e8;--text:#f5f3ff;--muted:#9997b5;--green:#36d99a;--border:#292943;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',sans-serif;min-height:100vh;}
+button,input,select{font-family:inherit}
+button{cursor:pointer;border:0}
+header{height:70px;padding:0 5%;display:flex;align-items:center;justify-content:space-between;background:#11111f;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.logo{font-size:23px;font-weight:900;color:white;text-decoration:none}
+.logo span{color:var(--purple)}
+.coins{background:#242039;padding:9px 16px;border-radius:20px;color:#ffd45c}
+nav{display:flex;justify-content:center;gap:10px;padding:15px;background:#10101c;flex-wrap:wrap;}
+nav button,.secondary{background:var(--panel2);color:white;padding:10px 17px;border-radius:12px;font-weight:700;}
+nav button.active{background:var(--purple)}
+main{max-width:1100px;margin:auto;padding:25px 18px}
+.page{display:none}
+.page.active{display:block}
+.hero{background:linear-gradient(120deg,#30205e,#17172e 65%,#301b49);padding:35px;border-radius:24px;margin-bottom:25px;border:1px solid #44306f;}
+.hero h1{font-size:32px;margin:0 0 10px}
+.hero p{color:#c5b9e8;margin:0 0 20px}
+.primary{background:linear-gradient(120deg,var(--purple),var(--pink));color:white;padding:12px 22px;border-radius:12px;font-weight:800;}
+.section-title{font-size:21px;margin:28px 0 15px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:25px;}
+.stat,.game-card,.panel{background:var(--panel);border:1px solid var(--border);border-radius:17px;padding:18px;}
+.stat small{color:var(--muted)}
+.stat strong{display:block;font-size:24px;margin-top:5px}
+.games{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px;}
+.game-card{transition:.2s;cursor:pointer}
+.game-card:hover{transform:translateY(-4px);border-color:var(--purple)}
+.game-icon{font-size:38px;margin-bottom:10px}
+.game-card h3{margin:5px 0}
+.game-card p{color:var(--muted);font-size:13px}
+.tag{color:var(--cyan);font-size:12px}
+.mission{background:linear-gradient(120deg,#242044,#192b37);padding:20px;border-radius:17px;margin-top:25px;}
+.progress{height:9px;background:#34334b;border-radius:20px;overflow:hidden;margin:12px 0}
+.progress div{height:100%;background:var(--green);width:0%;transition:.3s}
+.game-area{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:25px;text-align:center;min-height:300px;}
+.game-area h2{margin-top:0}
+.game-result{font-size:20px;font-weight:800;margin:18px}
+.game-buttons{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+.game-buttons button{padding:12px 20px;border-radius:12px;background:#292943;color:white}
+input{background:#10101d;border:1px solid var(--border);color:white;padding:13px;border-radius:11px;width:100%;outline:none;}
+input:focus{border-color:var(--purple)}
+.choice{font-size:48px;background:#292943;padding:15px 23px;border-radius:15px;}
+.profile-head{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.avatar{font-size:48px;background:#282442;padding:15px;border-radius:50%}
+.list-item{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
+footer{text-align:center;color:var(--muted);padding:30px}
+.hidden{display:none!important}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.hero{padding:23px}.hero h1{font-size:25px}nav{gap:6px}nav button{padding:9px 11px;font-size:12px}}
+#toastContainer{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;pointer-events:none;align-items:center;}
+.toast{background:#1f1d35;border:1px solid var(--border);color:white;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:90vw;animation:toastIn .25s ease-out;pointer-events:auto;}
+.toast.info{border-color:var(--cyan)}
+.toast.warn{border-color:#ff9b3b}
+.toast.success{border-color:var(--green)}
+@keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<header>
+ <a class="logo" href="index.html">چالش<span>‌کلاب</span> 🎮</a>
+ <div class="coins">🪙 <span id="coinCount">100</span></div>
+</header>
+
+<nav>
+ <button class="active" onclick="showPage('home',this)">خانه</button>
+ <button onclick="location.href='online.html'">اتاق آنلاین</button>
+ <button onclick="showPage('competition',this)">رقابت</button>
+ <button onclick="showPage('profile',this)">پروفایل</button>
+</nav>
+
+<main>
+<section id="home" class="page active">
+ <div class="hero">
+  <h1>آماده‌ای به چالش کشیده بشی؟ 🔥</h1>
+  <p>بازی کن، امتیاز بگیر، پیشرفت کن و با دوستات رقابت کن!</p>
+  <button class="primary" onclick="document.getElementById('games').scrollIntoView({behavior:'smooth'})">شروع بازی</button>
+  <button class="secondary" onclick="location.href='online.html'">بازی با دوست 🌐</button>
+ </div>
+ <div class="stats">
+  <div class="stat"><small>امتیاز کل</small><strong id="score">0</strong></div>
+  <div class="stat"><small>سطح</small><strong id="level">1</strong></div>
+  <div class="stat"><small>تجربه</small><strong id="xp">0</strong></div>
+  <div class="stat"><small>بازی‌ها</small><strong id="played">0</strong></div>
+ </div>
+ <h2 class="section-title" id="games">🎯 بازی‌های چالش‌کلاب</h2>
+ <div class="games">
+  <div class="game-card" onclick="startGame('reaction')"><div class="game-icon">⚡</div><h3>سرعت واکنش</h3><p>سرعت عمل خودت رو امتحان کن.</p><span class="tag">مهارت و سرعت</span></div>
+  <div class="game-card" onclick="startGame('memory')"><div class="game-icon">🧠</div><h3>حافظه تصویری</h3><p>تصاویر رو به خاطر بسپار.</p><span class="tag">حافظه</span></div>
+  <div class="game-card" onclick="startGame('math')"><div class="game-icon">➗</div><h3>نبرد ریاضی</h3><p>به سوالات ریاضی جواب بده.</p><span class="tag">هوش و دقت</span></div>
+  <div class="game-card" onclick="startGame('guess')"><div class="game-icon">🔢</div><h3>حدس عدد</h3><p>عدد مخفی رو پیدا کن.</p><span class="tag">فکری</span></div>
+  <div class="game-card" onclick="startGame('color')"><div class="game-icon">🎨</div><h3>چالش رنگ</h3><p>رنگ نوشته رو تشخیص بده.</p><span class="tag">تمرکز</span></div>
+  <div class="game-card" onclick="startGame('sequence')"><div class="game-icon">🧮</div><h3>دنباله اعداد</h3><p>عدد بعدی دنباله رو پیدا کن.</p><span class="tag">منطق و الگو</span></div>
+ </div>
+ <div class="mission">
+  <h3>🎁 مأموریت روزانه</h3>
+  <p>۳ بازی انجام بده و ۱۰۰ سکه جایزه بگیر.</p>
+  <div class="progress"><div id="missionProgress"></div></div>
+  <span id="missionText">۰ از ۳ بازی</span>
+ </div>
+</section>
+
+<section id="gamePage" class="page">
+ <button class="secondary" onclick="showPage('home')">← بازگشت</button>
+ <div class="game-area" style="margin-top:15px">
+  <h2 id="gameTitle">بازی</h2>
+  <div id="gameContent"></div>
+  <div id="gameResult" class="game-result"></div>
+ </div>
+</section>
+
+<section id="competition" class="page">
+ <h2>🏆 جدول رقابت</h2>
+ <p style="color:var(--muted)">رتبه‌بندی نمایشی این نسخه بر اساس امتیاز محلی است.</p>
+ <div class="panel" id="leaderboard"></div>
+</section>
+
+<section id="profile" class="page">
+ <h2>👤 پروفایل من</h2>
+ <div class="panel">
+  <div class="profile-head">
+   <div class="avatar" id="profileAvatar">😎</div>
+   <div><h2 id="profileName">بازیکن</h2><p id="profileLevel">سطح ۱</p></div>
+  </div>
+  <div style="margin-top:20px">
+   <label>نام بازیکن</label>
+   <input id="nameInput" maxlength="20" placeholder="نام خودت رو وارد کن">
+   <button class="primary" style="margin-top:10px" onclick="saveName()">ذخیره نام</button>
+  </div>
+ </div>
+ <h3 class="section-title">آمار من</h3>
+ <div class="panel">
+  <div class="list-item"><span>امتیاز</span><b id="profileScore">0</b></div>
+  <div class="list-item"><span>بازی انجام‌شده</span><b id="profilePlayed">0</b></div>
+  <div class="list-item"><span>بردها</span><b id="profileWins">0</b></div>
+ </div>
+ <h3 class="section-title">🛍️ فروشگاه</h3>
+ <div class="games" id="shop"></div>
+ <button class="secondary" style="margin-top:20px" onclick="toggleSound()">🔊 روشن/خاموش کردن صدا</button>
+ <button id="installBtn" class="primary hidden" style="margin-top:20px" onclick="installApp()">📲 نصب روی دستگاه</button>
+ <button class="secondary" style="margin-top:20px" onclick="resetData()">بازنشانی اطلاعات</button>
+</section>
+</main>
+<div id="toastContainer"></div>
+<footer>Challenge Club © 2026 | بازی کن، پیشرفت کن! 🎮</footer>
+
+<script>
+/* ============================================================
+   🧩 SHARED — data, save, updateUI, AudioFX, toast, reward
+   ============================================================ */
+const defaultData={coins:100,score:0,xp:0,played:0,wins:0,name:"بازیکن",avatar:"😎",daily:0,dailyClaimed:false,sound:true,owned:[],equipped:"default"};
+const STORAGE_KEY="challengeClubSave";
+
+function loadData(){
+ let raw=null;
+ try{raw=JSON.parse(localStorage.getItem(STORAGE_KEY));}catch(e){}
+ return {...defaultData,...(raw||{})};
+}
+let data=loadData();
+
+function save(){
+ localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+ updateUI();
+}
+
+function updateUI(){
+ const el=id=>document.getElementById(id);
+ if(el("coinCount"))el("coinCount").textContent=data.coins;
+ if(el("score"))el("score").textContent=data.score;
+ if(el("xp"))el("xp").textContent=data.xp;
+ if(el("played"))el("played").textContent=data.played;
+ if(el("level"))el("level").textContent=Math.floor(data.xp/100)+1;
+ if(el("profileName"))el("profileName").textContent=data.name;
+ if(el("profileLevel"))el("profileLevel").textContent="سطح "+(Math.floor(data.xp/100)+1);
+ if(el("profileAvatar"))el("profileAvatar").textContent=data.avatar;
+ if(el("profileScore"))el("profileScore").textContent=data.score;
+ if(el("profilePlayed"))el("profilePlayed").textContent=data.played;
+ if(el("profileWins"))el("profileWins").textContent=data.wins;
+ if(el("missionProgress"))el("missionProgress").style.width=Math.min(data.daily/3*100,100)+"%";
+ if(el("missionText"))el("missionText").textContent=Math.min(data.daily,3)+" از ۳ بازی";
+}
+
+const AudioFX=(()=>{
+ let ctx=null;
+ function getCtx(){if(ctx)return ctx;try{ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){ctx=null;}return ctx;}
+ function tone({freq=440,dur=0.12,type="sine",gain=0.07,slide=0}={}){
+  if(!data||!data.sound)return;
+  const ac=getCtx();if(!ac)return;
+  if(ac.state==="suspended")ac.resume().catch(()=>{});
+  const osc=ac.createOscillator();const g=ac.createGain();
+  osc.type=type;osc.frequency.setValueAtTime(freq,ac.currentTime);
+  if(slide)osc.frequency.exponentialRampToValueAtTime(Math.max(40,freq+slide),ac.currentTime+dur);
+  g.gain.setValueAtTime(gain,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+  osc.connect(g);g.connect(ac.destination);osc.start();osc.stop(ac.currentTime+dur+0.02);
+ }
+ return{
+  click(){tone({freq:640,dur:0.06,type:"square",gain:0.035});},
+  win(){tone({freq:523,dur:0.12});setTimeout(()=>tone({freq:784,dur:0.18}),110);},
+  lose(){tone({freq:220,dur:0.22,type:"sawtooth",gain:0.05});},
+  tie(){tone({freq:440,dur:0.1});setTimeout(()=>tone({freq:440,dur:0.1}),140);}
+ };
+})();
+
+function showToast(text,type="info"){
+ const container=document.getElementById("toastContainer");if(!container)return;
+ const el=document.createElement("div");el.className="toast "+type;el.textContent=String(text).slice(0,200);
+ container.appendChild(el);
+ setTimeout(()=>{el.style.opacity="0";el.style.transition="opacity .3s";setTimeout(()=>el.remove(),300);},3200);
+}
+
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+function reward(points,win=true){
+ data.score+=points;data.coins+=Math.max(5,Math.floor(points/4));data.xp+=points;data.played++;
+ if(win)data.wins++;data.daily++;
+ if(data.daily>=3&&!data.dailyClaimed){data.coins+=100;data.dailyClaimed=true;showToast("🎉 مأموریت روزانه تکمیل شد! ۱۰۰ سکه گرفتی.","success");}
+ save();
+}
+
+// سینک بین تب‌ها
+window.addEventListener("storage",e=>{
+ if(e.key===STORAGE_KEY&&e.newValue){
+  try{data={...defaultData,...JSON.parse(e.newValue)};updateUI();}catch(err){}
+ }
+});
+
+/* ============================================================
+   🎮 MAIN GAME
+   ============================================================ */
+function showPage(id,btn){
+ document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+ const page=document.getElementById(id);if(page)page.classList.add("active");
+ document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+ if(btn)btn.classList.add("active");
+ if(id==="competition")renderLeaderboard();
+ if(id==="profile"){renderShop();const ni=document.getElementById("nameInput");if(ni)ni.value=data.name;}
+}
+
+const GAMES={
+ reaction:{title:"⚡ سرعت واکنش",init:reactionGame},
+ memory:{title:"🧠 حافظه تصویری",init:memoryGame},
+ math:{title:"➗ نبرد ریاضی",init:mathGame},
+ guess:{title:"🔢 حدس عدد",init:guessGame},
+ color:{title:"🎨 چالش رنگ",init:colorGame},
+ sequence:{title:"🧮 دنباله اعداد",init:sequenceGame}
+};
+
+let currentGame=null;let gameTimer=null;let gameOver=false;
+
+function startGame(type){
+ clearTimeout(gameTimer);gameOver=false;AudioFX.click();currentGame=type;showPage("gamePage");
+ const g=GAMES[type];if(!g)return;
+ document.getElementById("gameTitle").textContent=g.title;
+ document.getElementById("gameResult").textContent="";
+ const box=document.getElementById("gameContent");box.innerHTML="";g.init(box);
+}
+
+function endGame(points,win,message){
+ if(gameOver)return;gameOver=true;clearTimeout(gameTimer);
+ document.getElementById("gameResult").textContent=message;
+ document.getElementById("gameContent").querySelectorAll("button,input").forEach(el=>{el.disabled=true;});
+ if(points>0)reward(points,win);
+ if(win)AudioFX.win();else AudioFX.lose();
+}
+
+function reactionGame(box){
+ box.innerHTML=`<p>وقتی صفحه سبز شد، سریع کلیک کن!</p><button id="reactionBox" style="width:100%;height:150px;background:#733b83;color:white;border-radius:18px;font-size:22px;margin-top:15px">برای شروع کلیک کن</button>`;
+ const btn=document.getElementById("reactionBox");
+ let started=false,ready=false,startTime=0,finished=false;
+ btn.onclick=()=>{
+  if(finished)return;
+  if(!started){started=true;btn.textContent="منتظر سبز شدن باش...";btn.style.background="#a34b4b";
+   const delay=1500+Math.random()*3500;
+   gameTimer=setTimeout(()=>{ready=true;startTime=performance.now();btn.style.background="#20a878";btn.textContent="حالا کلیک کن!";},delay);
+  }else if(!ready){finished=true;clearTimeout(gameTimer);endGame(0,false,"زود کلیک کردی! دوباره تلاش کن.");}
+  else{finished=true;const time=Math.round(performance.now()-startTime);const points=time<250?50:time<400?35:time<600?20:10;endGame(points,true,"زمان واکنش: "+time+" میلی‌ثانیه | +"+points+" امتیاز");}
+ };
+}
+
+function memoryGame(box){
+ const symbols=["🍎","🚀","🎮","🐱","⚽","🌟"];
+ const chosen=[...symbols].sort(()=>Math.random()-.5).slice(0,4);
+ box.innerHTML=`<p>این تصاویر را به خاطر بسپار!</p><div style="font-size:38px;margin:20px" id="memoryShow">${chosen.join(" ")}</div><button class="primary" id="memoryStart">آماده‌ام</button><div id="memoryInput"></div>`;
+ document.getElementById("memoryStart").onclick=()=>{
+  document.getElementById("memoryShow").textContent="❓ ❓ ❓ ❓";
+  document.getElementById("memoryStart").remove();
+  const input=document.getElementById("memoryInput");
+  input.innerHTML="<p>چهار تصویر را به ترتیب انتخاب کن:</p>";
+  let selected=[];
+  const all=[...symbols].sort(()=>Math.random()-.5);
+  all.forEach(s=>{
+   const b=document.createElement("button");b.className="choice";b.textContent=s;b.style.fontSize="28px";b.style.margin="5px";
+   b.onclick=()=>{if(selected.includes(s))return;selected.push(s);b.disabled=true;
+    if(selected.length===4){const correct=selected.every((v,i)=>v===chosen[i]);endGame(correct?40:10,correct,correct?"عالی! همه تصاویر درست بود.":"تلاش خوبی بود! ترتیب کامل درست نبود.");}
+   };
+   input.appendChild(b);
+  });
+ };
+}
+
+function mathGame(box){
+ let a=Math.floor(Math.random()*20)+1;let b=Math.floor(Math.random()*20)+1;let answer=a+b;
+ box.innerHTML=`<h2>${a} + ${b} = ؟</h2><input id="mathAnswer" type="number" placeholder="جواب را بنویس"><button class="primary" style="margin-top:12px" onclick="checkMath(${answer})">بررسی جواب</button>`;
+}
+function checkMath(answer){
+ const v=Number(document.getElementById("mathAnswer").value);
+ if(v===answer)endGame(30,true,"آفرین! جواب درست بود.");
+ else endGame(0,false,"جواب اشتباه بود. جواب صحیح: "+answer);
+}
+
+function guessGame(box){
+ const secret=Math.floor(Math.random()*30)+1;let attempts=6;
+ box.innerHTML=`<p>عدد مخفی بین ۱ تا ۳۰ را در ۶ تلاش پیدا کن.</p><input id="guessInput" type="number" min="1" max="30" placeholder="حدس تو"><button class="primary" style="margin-top:12px" onclick="checkGuess(${secret})">حدس بزن</button><p id="guessHint">۶ فرصت باقی مانده</p>`;
+ window.checkGuess=function(n){
+  const input=document.getElementById("guessInput");const val=Number(input.value);
+  if(!val||val<1||val>30)return alert("یک عدد بین ۱ تا ۳۰ وارد کن.");
+  attempts--;
+  if(val===n)endGame(40,true,"درست حدس زدی! عدد "+n+" بود.");
+  else if(attempts===0)endGame(0,false,"فرصت‌ها تمام شد! عدد "+n+" بود.");
+  else document.getElementById("guessHint").textContent=(val<n?"عدد مخفی بزرگ‌تر است. ":"عدد مخفی کوچک‌تر است. ")+attempts+" فرصت باقی مانده";
+  input.value="";
+ };
+}
+
+function colorGame(box){
+ const colors=[{name:"قرمز",code:"#ff4040"},{name:"آبی",code:"#408cff"},{name:"سبز",code:"#3bd98a"},{name:"زرد",code:"#ffd43b"}];
+ let score=0,round=0;
+ function next(){
+  if(round===5){endGame(score*10,score>=3,"پایان! "+score+" پاسخ درست از ۵ سوال.");return;}
+  round++;
+  const word=colors[Math.floor(Math.random()*4)];const ink=colors[Math.floor(Math.random()*4)];
+  box.innerHTML=`<p>رنگ نوشته را انتخاب کن، نه معنی کلمه را!</p><h1 style="font-size:42px;color:${ink.code}">${word.name}</h1><div class="game-buttons" id="colorChoices"></div><p>سوال ${round} از ۵</p>`;
+  colors.forEach(c=>{
+   const b=document.createElement("button");b.textContent=c.name;
+   b.onclick=()=>{if(c.name===ink.name)score++;next();};
+   document.getElementById("colorChoices").appendChild(b);
+  });
+ }
+ next();
+}
+
+function sequenceGame(box){
+ const patterns=[
+  ()=>{const start=Math.floor(Math.random()*9)+1;const step=Math.floor(Math.random()*5)+2;return{seq:[start,start+step,start+2*step,start+3*step,start+4*step],answer:start+5*step,hint:"افزایش ثابت"};},
+  ()=>{const start=Math.floor(Math.random()*2)+2;const mult=Math.floor(Math.random()*2)+2;return{seq:[start,start*mult,start*mult**2,start*mult**3,start*mult**4],answer:start*mult**5,hint:"ضرب ثابت"};},
+  ()=>{const a=Math.floor(Math.random()*5)+1;const b=Math.floor(Math.random()*5)+1;return{seq:[a,b,a+b,a+2*b,2*a+3*b],answer:3*a+5*b,hint:"جمع دو عدد قبلی"};},
+  ()=>{const start=Math.floor(Math.random()*3)+1;return{seq:[start**2,(start+1)**2,(start+2)**2,(start+3)**2,(start+4)**2],answer:(start+5)**2,hint:"مربع اعداد"};}
+ ];
+ const p=patterns[Math.floor(Math.random()*patterns.length)]();
+ box.innerHTML=`<p>عدد بعدی دنباله را پیدا کن:</p><h2 style="font-size:30px;letter-spacing:3px;line-height:1.7">${p.seq.join(" , ")} , <span style="color:var(--purple)">؟</span></h2><input id="seqAnswer" type="number" placeholder="عدد بعدی را وارد کن"><button class="primary" style="margin-top:12px" onclick="checkSequence(${p.answer})">بررسی جواب</button><p style="color:var(--muted);font-size:13px;margin-top:15px">راهنما: ${p.hint}</p>`;
+}
+function checkSequence(answer){
+ const input=document.getElementById("seqAnswer");const raw=(input.value||"").trim();
+ if(raw==="")return alert("یک عدد وارد کن.");
+ const v=Number(raw);if(!Number.isFinite(v))return alert("یک عدد معتبر وارد کن.");
+ if(v===answer)endGame(30,true,"آفرین! جواب درست بود: "+answer);
+ else endGame(0,false,"جواب اشتباه بود. جواب صحیح: "+answer);
+}
+
+function saveName(){const n=document.getElementById("nameInput").value.trim();if(!n)return alert("نام را وارد کن.");data.name=n;save();showToast("نام ذخیره شد.","success");}
+
+function renderLeaderboard(){
+ const list=[{name:"Shadow",score:1250,avatar:"🥷"},{name:"Star",score:980,avatar:"🌟"},{name:"King",score:760,avatar:"👑"},{name:data.name,score:data.score,avatar:data.avatar}].sort((a,b)=>b.score-a.score);
+ document.getElementById("leaderboard").innerHTML=list.map((p,i)=>`<div class="list-item"><span>${["🥇","🥈","🥉","🏅"][i]} ${p.avatar} ${escapeHTML(p.name)}</span><b>${p.score} امتیاز</b></div>`).join("");
+}
+
+const shopItems=[{id:"avatar1",name:"آواتار فضایی",icon:"👨‍🚀",price:50},{id:"avatar2",name:"آواتار ربات",icon:"🤖",price:80},{id:"avatar3",name:"آواتار اژدها",icon:"🐉",price:120},{id:"avatar4",name:"آواتار تاج‌دار",icon:"🤴",price:150}];
+function renderShop(){
+ document.getElementById("shop").innerHTML=shopItems.map(item=>{
+  const owned=data.owned.includes(item.id);
+  return `<div class="game-card"><div class="game-icon">${item.icon}</div><h3>${item.name}</h3><p>🪙 ${item.price}</p><button class="primary" onclick="buyItem('${item.id}')">${owned?"استفاده":"خرید"}</button></div>`;
+ }).join("");
+}
+function buyItem(id){
+ const item=shopItems.find(x=>x.id===id);if(!item)return;
+ if(data.owned.includes(id)){data.avatar=item.icon;save();renderShop();AudioFX.click();return;}
+ if(data.coins<item.price)return alert("سکه کافی نداری!");
+ data.coins-=item.price;data.owned.push(id);data.avatar=item.icon;save();renderShop();AudioFX.win();showToast("خرید با موفقیت انجام شد!","success");
+}
+function toggleSound(){if(data.sound)AudioFX.click();data.sound=!data.sound;save();if(data.sound)AudioFX.click();showToast(data.sound?"صدا روشن شد.":"صدا خاموش شد.","info");}
+function resetData(){if(!confirm("همه امتیازها و اطلاعات پاک شوند؟"))return;data={...defaultData};save();renderShop();showToast("اطلاعات بازنشانی شد.","info");}
+
+/* ============================================================
+   📲 PWA
+   ============================================================ */
+(function setupPWA(){
+ function iconSvg(size){const s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" rx="${Math.round(size/5)}" fill="#8957ff"/><text x="${size/2}" y="${Math.round(size*0.72)}" font-size="${Math.round(size*0.55)}" text-anchor="middle" font-family="system-ui,Segoe UI,Apple Color Emoji,sans-serif">🎮</text></svg>`;return "data:image/svg+xml,"+encodeURIComponent(s);}
+ const manifest={name:"چالش‌کلاب",short_name:"چالش‌کلاب",description:"بازی کن، امتیاز بگیر، با دوستات رقابت کن!",start_url:"index.html",scope:".",display:"standalone",orientation:"portrait",background_color:"#0b0b14",theme_color:"#8957ff",lang:"fa",dir:"rtl",icons:[{src:iconSvg(192),sizes:"192x192",type:"image/svg+xml",purpose:"any"},{src:iconSvg(512),sizes:"512x512",type:"image/svg+xml",purpose:"any"}]};
+ try{const blob=new Blob([JSON.stringify(manifest)],{type:"application/manifest+json"});const url=URL.createObjectURL(blob);const link=document.createElement("link");link.rel="manifest";link.href=url;document.head.appendChild(link);}catch(e){}
+ window.__deferredPrompt=null;
+ window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();window.__deferredPrompt=e;const btn=document.getElementById("installBtn");if(btn)btn.classList.remove("hidden");showToast("می‌تونی چالش‌کلاب رو نصب کنی 📲","info");});
+ window.addEventListener("appinstalled",()=>{window.__deferredPrompt=null;const btn=document.getElementById("installBtn");if(btn)btn.classList.add("hidden");showToast("چالش‌کلاب نصب شد 🎉","success");});
+ const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+ const isStandalone=(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)||window.navigator.standalone;
+ if(isIOS&&!isStandalone){const btn=document.getElementById("installBtn");if(btn){btn.textContent="📲 راهنمای نصب (iOS)";btn.classList.remove("hidden");btn.onclick=()=>{showToast("در Safari روی دکمه اشتراک‌گذاری (⬆️) بزن و «افزودن به صفحه اصلی» را انتخاب کن","info");};}}
+ if("serviceWorker" in navigator){try{const swCode=`self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>self.clients.claim());self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(caches.open("cc-v1").then(cache=>cache.match(e.request).then(hit=>{const net=fetch(e.request).then(resp=>{if(resp&&resp.ok){try{cache.put(e.request,resp.clone());}catch(_){}}return resp;}).catch(()=>hit);return hit||net;})));});`;const swUrl=URL.createObjectURL(new Blob([swCode],{type:"application/javascript"}));navigator.serviceWorker.register(swUrl).catch(()=>{});}catch(e){}}
+})();
+function installApp(){const p=window.__deferredPrompt;if(!p){showToast("نصب از منوی مرورگر در دسترس است","info");return;}p.prompt();p.userChoice.then(choice=>{window.__deferredPrompt=null;if(choice.outcome==="accepted")showToast("در حال نصب...","success");});}
+
+updateUI();
+</script>
+</body>
+</html>
