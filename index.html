@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#8957ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="چالش‌کلاب">
 <title>چالش‌کلاب | Challenge Club</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
@@ -173,6 +177,46 @@ background:var(--green)!important;color:#062b1e;
 transform:scale(1.04);
 box-shadow:0 0 20px rgba(54,217,154,.5);
 }
+
+/* --- Speaking indicator --- */
+#speakingIndicator{
+display:inline-block;
+opacity:.18;
+transition:opacity .15s;
+font-size:14px;
+margin-right:4px;
+}
+#speakingIndicator.speaking{
+opacity:1;
+animation:speakPulse .6s infinite alternate;
+}
+@keyframes speakPulse{
+from{transform:scale(1)}
+to{transform:scale(1.3)}
+}
+
+/* --- Emoji reactions --- */
+.reaction-btn{
+font-size:22px;background:#292943;padding:6px 12px;
+border-radius:10px;transition:transform .1s;
+line-height:1;
+}
+.reaction-btn:hover{transform:scale(1.15)}
+.reaction-btn:active{transform:scale(.92)}
+
+#floatingEmojis{
+position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden;
+}
+.floating-emoji{
+position:absolute;bottom:60px;font-size:42px;
+animation:floatEmoji 2.2s ease-out forwards;
+user-select:none;will-change:transform,opacity;
+}
+@keyframes floatEmoji{
+0%{transform:translateY(0) scale(.8);opacity:0}
+15%{opacity:1;transform:translateY(-20px) scale(1)}
+100%{transform:translateY(-70vh) scale(1.3);opacity:0}
+}
 </style>
 </head>
 <body>
@@ -270,8 +314,21 @@ box-shadow:0 0 20px rgba(54,217,154,.5);
   </div>
 
   <div id="onlineGame" class="hidden">
-   <p id="opponentName" style="color:var(--cyan);font-weight:700">منتظر حریف...</p>
+   <p style="color:var(--cyan);font-weight:700;margin:0;display:flex;align-items:center;justify-content:center;gap:6px">
+    <span id="opponentName">منتظر حریف...</span>
+    <span id="speakingIndicator" title="حریف در حال صحبت">🎙️</span>
+   </p>
    <p id="onlineScore" style="color:var(--muted);font-size:13px">امتیاز تو: ۰ | حریف: ۰</p>
+
+   <div id="reactionBar" style="margin:12px 0;display:flex;justify-content:center;gap:6px;flex-wrap:wrap">
+    <button class="reaction-btn" type="button" aria-label="خنده" onclick="sendReaction('😂')">😂</button>
+    <button class="reaction-btn" type="button" aria-label="تعجب" onclick="sendReaction('😱')">😱</button>
+    <button class="reaction-btn" type="button" aria-label="آتش" onclick="sendReaction('🔥')">🔥</button>
+    <button class="reaction-btn" type="button" aria-label="تشویق" onclick="sendReaction('👏')">👏</button>
+    <button class="reaction-btn" type="button" aria-label="باختن" onclick="sendReaction('💀')">💀</button>
+    <button class="reaction-btn" type="button" aria-label="دقیق" onclick="sendReaction('🎯')">🎯</button>
+    <button class="reaction-btn" type="button" aria-label="جشن" onclick="sendReaction('🎉')">🎉</button>
+   </div>
 
    <div id="onlineRps">
     <h2>✊ سنگ، کاغذ، قیچی</h2>
@@ -369,10 +426,12 @@ box-shadow:0 0 20px rgba(54,217,154,.5);
  <h3 class="section-title">🛍️ فروشگاه</h3>
  <div class="games" id="shop"></div>
  <button class="secondary" style="margin-top:20px" onclick="toggleSound()">🔊 روشن/خاموش کردن صدا</button>
+ <button id="installBtn" class="primary hidden" style="margin-top:20px" onclick="installApp()">📲 نصب روی دستگاه</button>
  <button class="secondary" style="margin-top:20px" onclick="resetData()">بازنشانی اطلاعات</button>
 </section>
 </main>
 <div id="toastContainer"></div>
+<div id="floatingEmojis" aria-hidden="true"></div>
 <audio id="remoteAudio" autoplay></audio>
 <footer>Challenge Club © 2026 | بازی کن، پیشرفت کن! 🎮</footer>
 <script>
@@ -796,7 +855,117 @@ updateUI();
 </script>
 <script>
 /* ============================================================
-   🌐 اتاق آنلاین — شامل چت، ریمچ، اعلان، انتخاب بازی، صدای زنده
+   📲 PWA — manifest، دکمه نصب، Service Worker best-effort
+   ============================================================ */
+(function setupPWA(){
+ // ساخت آیکون SVG به‌صورت data URI
+ function iconSvg(size){
+  const s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" rx="${Math.round(size/5)}" fill="#8957ff"/><text x="${size/2}" y="${Math.round(size*0.72)}" font-size="${Math.round(size*0.55)}" text-anchor="middle" font-family="system-ui,Segoe UI,Apple Color Emoji,sans-serif">🎮</text></svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(s);
+ }
+ const manifest={
+  name:"چالش‌کلاب | Challenge Club",
+  short_name:"چالش‌کلاب",
+  description:"بازی کن، امتیاز بگیر، با دوستات رقابت کن!",
+  start_url:".",
+  scope:".",
+  display:"standalone",
+  orientation:"portrait",
+  background_color:"#0b0b14",
+  theme_color:"#8957ff",
+  lang:"fa",
+  dir:"rtl",
+  icons:[
+   {src:iconSvg(192),sizes:"192x192",type:"image/svg+xml",purpose:"any"},
+   {src:iconSvg(512),sizes:"512x512",type:"image/svg+xml",purpose:"any"}
+  ]
+ };
+ try{
+  const blob=new Blob([JSON.stringify(manifest)],{type:"application/manifest+json"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("link");
+  link.rel="manifest";
+  link.href=url;
+  document.head.appendChild(link);
+ }catch(e){}
+
+ // ذخیره پرامپت نصب
+ window.__deferredPrompt=null;
+ window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  window.__deferredPrompt=e;
+  const btn=document.getElementById("installBtn");
+  if(btn)btn.classList.remove("hidden");
+  if(typeof showToast==="function"){
+   showToast("می‌تونی چالش‌کلاب رو روی دستگاهت نصب کنی 📲","info");
+  }
+ });
+ window.addEventListener("appinstalled",()=>{
+  window.__deferredPrompt=null;
+  const btn=document.getElementById("installBtn");
+  if(btn)btn.classList.add("hidden");
+  if(typeof showToast==="function")showToast("چالش‌کلاب نصب شد 🎉","success");
+ });
+
+ // iOS: راهنمای دستی نصب
+ const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+ const isStandalone=(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)||window.navigator.standalone;
+ if(isIOS && !isStandalone){
+  const btn=document.getElementById("installBtn");
+  if(btn){
+   btn.textContent="📲 راهنمای نصب (iOS)";
+   btn.classList.remove("hidden");
+   btn.onclick=()=>{
+    showToast("در Safari روی دکمه اشتراک‌گذاری (⬆️) بزن و «افزودن به صفحه اصلی» را انتخاب کن","info");
+   };
+  }
+ }
+
+ // Service Worker — best-effort از Blob (ممکن است در برخی مرورگرها رد شود)
+ if("serviceWorker" in navigator){
+  try{
+   const swCode=`
+    self.addEventListener("install",e=>self.skipWaiting());
+    self.addEventListener("activate",e=>self.clients.claim());
+    self.addEventListener("fetch",e=>{
+     if(e.request.method!=="GET")return;
+     e.respondWith(
+      caches.open("cc-v1").then(cache=>
+       cache.match(e.request).then(hit=>{
+        const net=fetch(e.request).then(resp=>{
+         if(resp&&resp.ok){try{cache.put(e.request,resp.clone());}catch(_){}}
+         return resp;
+        }).catch(()=>hit);
+        return hit||net;
+       })
+      )
+     );
+    });
+   `;
+   const swUrl=URL.createObjectURL(new Blob([swCode],{type:"application/javascript"}));
+   navigator.serviceWorker.register(swUrl).catch(()=>{});
+  }catch(e){}
+ }
+})();
+
+function installApp(){
+ const p=window.__deferredPrompt;
+ if(!p){
+  showToast("نصب از منوی مرورگر در دسترس است (افزودن به صفحه اصلی)","info");
+  return;
+ }
+ p.prompt();
+ p.userChoice.then(choice=>{
+  window.__deferredPrompt=null;
+  if(choice.outcome==="accepted"){
+   showToast("در حال نصب...","success");
+  }
+ });
+}
+</script>
+<script>
+/* ============================================================
+   🌐 اتاق آنلاین — چت، ریمچ، انتخاب بازی، صدای زنده، ایموجی، نشانگر صحبت
    ============================================================ */
 let peer=null;
 let conn=null;
@@ -819,6 +988,12 @@ let voiceCall=null;
 let voiceEnabled=false;
 let opponentVoiceReady=false;
 let pttActive=false;
+
+/* --- Voice analysis (speaking indicator) --- */
+let voiceAnalysisCtx=null;
+let voiceAnalyser=null;
+let speakingRaf=0;
+let opponentSpeakingState=false;
 
 /* ---------- Toast ---------- */
 function showToast(text,type="info"){
@@ -860,6 +1035,89 @@ function sendChat(){
  appendChat(safe,true);
  input.value="";
  input.focus();
+}
+
+/* ---------- Emoji reactions ---------- */
+const ALLOWED_REACTIONS=["😂","😱","🔥","👏","💀","🎯","🎉"];
+
+function sendReaction(emoji){
+ if(!ALLOWED_REACTIONS.includes(emoji))return;
+ if(!conn||!conn.open){
+  showToast("اتصال برقرار نیست","warn");
+  return;
+ }
+ conn.send({type:"reaction",emoji});
+ spawnFloatingEmoji(emoji);
+ AudioFX.click();
+}
+
+function spawnFloatingEmoji(emoji){
+ if(!ALLOWED_REACTIONS.includes(emoji))return;
+ const container=document.getElementById("floatingEmojis");
+ if(!container)return;
+ const el=document.createElement("div");
+ el.className="floating-emoji";
+ el.textContent=emoji;
+ el.style.left=(8+Math.random()*84)+"%";
+ el.style.fontSize=(32+Math.random()*22)+"px";
+ container.appendChild(el);
+ setTimeout(()=>{try{el.remove()}catch(e){}},2400);
+}
+
+/* ---------- Speaking indicator ---------- */
+function setOpponentSpeaking(speaking){
+ if(speaking===opponentSpeakingState)return;
+ opponentSpeakingState=speaking;
+ const el=document.getElementById("speakingIndicator");
+ if(el)el.classList.toggle("speaking",!!speaking);
+}
+
+function startVoiceAnalysis(stream){
+ stopVoiceAnalysis();
+ try{
+  const Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx)return;
+  voiceAnalysisCtx=new Ctx();
+  if(voiceAnalysisCtx.state==="suspended"){
+   voiceAnalysisCtx.resume().catch(()=>{});
+  }
+  voiceAnalyser=voiceAnalysisCtx.createAnalyser();
+  voiceAnalyser.fftSize=512;
+  voiceAnalyser.smoothingTimeConstant=0.7;
+  const source=voiceAnalysisCtx.createMediaStreamSource(stream);
+  source.connect(voiceAnalyser);
+  loopVoiceAnalysis();
+ }catch(e){
+  voiceAnalyser=null;
+ }
+}
+
+function loopVoiceAnalysis(){
+ if(!voiceAnalyser){return;}
+ const buf=new Uint8Array(voiceAnalyser.fftSize);
+ try{
+  voiceAnalyser.getByteTimeDomainData(buf);
+ }catch(e){
+  return;
+ }
+ let sum=0;
+ for(let i=0;i<buf.length;i++){
+  const v=(buf[i]-128)/128;
+  sum+=v*v;
+ }
+ const rms=Math.sqrt(sum/buf.length);
+ setOpponentSpeaking(rms>0.045);
+ speakingRaf=requestAnimationFrame(loopVoiceAnalysis);
+}
+
+function stopVoiceAnalysis(){
+ if(speakingRaf){cancelAnimationFrame(speakingRaf);speakingRaf=0;}
+ voiceAnalyser=null;
+ if(voiceAnalysisCtx){
+  try{voiceAnalysisCtx.close();}catch(e){}
+  voiceAnalysisCtx=null;
+ }
+ setOpponentSpeaking(false);
 }
 
 /* ---------- Rematch ---------- */
@@ -1050,7 +1308,7 @@ function newMathRound(){
 }
 
 /* ============================================================
-   🎙️ Voice (Push-to-Talk)
+   🎙️ Voice (Push-to-Talk) — با نشانگر صحبت
    ============================================================ */
 async function enableVoice(){
  if(voiceEnabled)return;
@@ -1060,7 +1318,6 @@ async function enableVoice(){
  }
  try{
   localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-  // Push-to-talk: در حالت عادی خاموش
   localStream.getAudioTracks().forEach(t=>{t.enabled=false;});
   voiceEnabled=true;
   pttActive=false;
@@ -1096,6 +1353,8 @@ function disableVoice(){
  }
  const audio=document.getElementById("remoteAudio");
  if(audio)audio.srcObject=null;
+
+ stopVoiceAnalysis();
 
  voiceEnabled=false;
  pttActive=false;
@@ -1144,6 +1403,7 @@ function setupVoiceCall(call){
     showToast("برای شنیدن صدا، یک بار روی صفحه کلیک کن","warn");
    });
   }
+  startVoiceAnalysis(remoteStream);
   document.getElementById("voiceStatus").textContent="🎙️ صدای زنده متصل است";
  });
 
@@ -1151,6 +1411,7 @@ function setupVoiceCall(call){
   voiceCall=null;
   const audio=document.getElementById("remoteAudio");
   if(audio)audio.srcObject=null;
+  stopVoiceAnalysis();
   if(voiceEnabled){
    document.getElementById("voiceStatus").textContent="تماس صوتی قطع شد";
   }
@@ -1161,7 +1422,6 @@ function setupVoiceCall(call){
  });
 }
 
-/* ثبت هندلر incoming call روی یک peer */
 function setupPeerCallHandler(p){
  p.on("call",call=>{
   if(!conn||call.peer!==conn.peer){
@@ -1172,7 +1432,7 @@ function setupPeerCallHandler(p){
    if(localStream){
     call.answer(localStream);
    }else{
-    call.answer(); // فقط دریافت، بدون ارسال
+    call.answer();
    }
    setupVoiceCall(call);
   }catch(e){
@@ -1289,10 +1549,10 @@ function setupRoomConnection(){
   document.getElementById("voicePanel").classList.add("hidden");
   document.getElementById("hostGameSelect").classList.add("hidden");
   hideRematchPrompt();
-  // پاک‌سازی صدا
   if(voiceCall){try{voiceCall.close()}catch(e){}voiceCall=null;}
   const audio=document.getElementById("remoteAudio");
   if(audio)audio.srcObject=null;
+  stopVoiceAnalysis();
   opponentVoiceReady=false;
   conn=null;
   showToast("حریف از اتاق خارج شد 😔","warn");
@@ -1324,6 +1584,12 @@ function handleRoomMessage(message){
 
   case "chat":
    appendChat(String(message.text||""),false);
+   break;
+
+  case "reaction":
+   if(ALLOWED_REACTIONS.includes(message.emoji)){
+    spawnFloatingEmoji(message.emoji);
+   }
    break;
 
   case "move":
@@ -1399,6 +1665,7 @@ function handleRoomMessage(message){
    if(voiceCall){try{voiceCall.close()}catch(e){}voiceCall=null;}
    const audio=document.getElementById("remoteAudio");
    if(audio)audio.srcObject=null;
+   stopVoiceAnalysis();
    if(voiceEnabled){
     document.getElementById("voiceStatus").textContent="حریف صدایش را قطع کرد.";
    }
@@ -1504,6 +1771,7 @@ function peerErrorText(err){
 }
 
 function cleanupRoom(resetUI=true){
+ stopVoiceAnalysis();
  if(voiceCall){
   try{voiceCall.close()}catch(e){}
   voiceCall=null;
@@ -1538,6 +1806,9 @@ function cleanupRoom(resetUI=true){
  const audio=document.getElementById("remoteAudio");
  if(audio)audio.srcObject=null;
 
+ const fe=document.getElementById("floatingEmojis");
+ if(fe)fe.innerHTML="";
+
  if(resetUI){
   document.getElementById("roomCodeDisplay").textContent="";
   document.getElementById("copyRoomBtn").classList.add("hidden");
@@ -1560,7 +1831,6 @@ function cleanupRoom(resetUI=true){
   document.getElementById("mathOnlineAnswer").disabled=true;
   document.getElementById("mathSubmitBtn").disabled=true;
   document.getElementById("mathOnlineResult").textContent="";
-  // Reset voice UI
   document.getElementById("voiceEnableBtn").classList.remove("hidden");
   document.getElementById("voiceDisableBtn").classList.add("hidden");
   document.getElementById("pttBtn").classList.add("hidden");
@@ -1577,6 +1847,7 @@ function leaveRoom(){
 }
 
 window.addEventListener("beforeunload",()=>{
+ stopVoiceAnalysis();
  if(peer){
   try{peer.destroy()}catch(e){}
  }
