@@ -101,6 +101,8 @@ footer{text-align:center;color:var(--muted);padding:30px}
   <div class="game-card" onclick="startGame('guess')"><div class="game-icon">🔢</div><h3>حدس عدد</h3><p>عدد مخفی رو پیدا کن.</p><span class="tag">فکری</span></div>
   <div class="game-card" onclick="startGame('color')"><div class="game-icon">🎨</div><h3>چالش رنگ</h3><p>رنگ نوشته رو تشخیص بده.</p><span class="tag">تمرکز</span></div>
   <div class="game-card" onclick="startGame('sequence')"><div class="game-icon">🧮</div><h3>دنباله اعداد</h3><p>عدد بعدی دنباله رو پیدا کن.</p><span class="tag">منطق و الگو</span></div>
+  <div class="game-card" onclick="startGame('scramble')"><div class="game-icon">🔤</div><h3>کلمه مخلوط</h3><p>حروف رو مرتب کن و کلمه بساز.</p><span class="tag">واژه‌سازی</span></div>
+  <div class="game-card" onclick="startGame('dice')"><div class="game-icon">🎲</div><h3>تاس حافظه‌ای</h3><p>مجموع تاس‌ها رو به خاطر بسپار.</p><span class="tag">حافظه</span></div>
  </div>
  <div class="mission">
   <h3>🎁 مأموریت روزانه</h3>
@@ -227,7 +229,6 @@ function reward(points,win=true){
  save();
 }
 
-// سینک بین تب‌ها
 window.addEventListener("storage",e=>{
  if(e.key===STORAGE_KEY&&e.newValue){
   try{data={...defaultData,...JSON.parse(e.newValue)};updateUI();}catch(err){}
@@ -252,13 +253,17 @@ const GAMES={
  math:{title:"➗ نبرد ریاضی",init:mathGame},
  guess:{title:"🔢 حدس عدد",init:guessGame},
  color:{title:"🎨 چالش رنگ",init:colorGame},
- sequence:{title:"🧮 دنباله اعداد",init:sequenceGame}
+ sequence:{title:"🧮 دنباله اعداد",init:sequenceGame},
+ scramble:{title:"🔤 کلمه مخلوط",init:scrambleGame},
+ dice:{title:"🎲 تاس حافظه‌ای",init:diceMemoryGame}
 };
 
 let currentGame=null;let gameTimer=null;let gameOver=false;
 
 function startGame(type){
- clearTimeout(gameTimer);gameOver=false;AudioFX.click();currentGame=type;showPage("gamePage");
+ clearTimeout(gameTimer);
+ if(gameTimer&&typeof gameTimer==="object")try{clearInterval(gameTimer);}catch(e){}
+ gameOver=false;AudioFX.click();currentGame=type;showPage("gamePage");
  const g=GAMES[type];if(!g)return;
  document.getElementById("gameTitle").textContent=g.title;
  document.getElementById("gameResult").textContent="";
@@ -266,7 +271,9 @@ function startGame(type){
 }
 
 function endGame(points,win,message){
- if(gameOver)return;gameOver=true;clearTimeout(gameTimer);
+ if(gameOver)return;gameOver=true;
+ clearTimeout(gameTimer);
+ try{clearInterval(gameTimer);}catch(e){}
  document.getElementById("gameResult").textContent=message;
  document.getElementById("gameContent").querySelectorAll("button,input").forEach(el=>{el.disabled=true;});
  if(points>0)reward(points,win);
@@ -365,6 +372,101 @@ function checkSequence(answer){
  const v=Number(raw);if(!Number.isFinite(v))return alert("یک عدد معتبر وارد کن.");
  if(v===answer)endGame(30,true,"آفرین! جواب درست بود: "+answer);
  else endGame(0,false,"جواب اشتباه بود. جواب صحیح: "+answer);
+}
+
+/* ---------------- بازی ۷: کلمه مخلوط ---------------- */
+const SCRAMBLE_WORDS=[
+ "برنامه","کتاب","دریا","خورشید","موسیقی","شادی","دوستی","پرواز","آسمان","ابر",
+ "پنجره","ستاره","باران","خانه","خیابان","پرنده","کوچک","سفید","سبز","زیبا",
+ "مدرسه","معلم","دانش","آموزش","کامپیوتر","موبایل","اینترنت","شبکه","سیستم","حافظه"
+];
+
+function scrambleGame(box){
+ const word=SCRAMBLE_WORDS[Math.floor(Math.random()*SCRAMBLE_WORDS.length)];
+ let shuffled;
+ do{shuffled=[...word].sort(()=>Math.random()-.5);}while(shuffled.join("")===word&&word.length>1);
+ const startTime=performance.now();
+ window.__scrambleAnswer=word;
+ window.__scrambleStart=startTime;
+ box.innerHTML=`
+  <p>حروف را مرتب کن و کلمه را در ۲۰ ثانیه بنویس:</p>
+  <h2 style="font-size:32px;letter-spacing:8px;color:var(--purple);margin:15px 0">${shuffled.join(" ")}</h2>
+  <input id="scrambleInput" type="text" placeholder="کلمه..." style="max-width:300px;margin:auto;display:block">
+  <button class="primary" style="margin-top:12px" onclick="checkScramble()">ارسال</button>
+  <p id="scrambleTimer" style="color:var(--muted);font-size:13px;margin-top:15px">۲۰ ثانیه فرصت</p>
+ `;
+ let remaining=20;
+ gameTimer=setInterval(()=>{
+  remaining--;
+  const el=document.getElementById("scrambleTimer");
+  if(el)el.textContent=remaining+" ثانیه فرصت";
+  if(remaining<=0){
+   clearInterval(gameTimer);
+   if(!gameOver)endGame(0,false,"زمان تمام شد! کلمه صحیح: "+word);
+  }
+ },1000);
+ setTimeout(()=>{
+  const inp=document.getElementById("scrambleInput");
+  if(inp){inp.focus();inp.onkeydown=e=>{if(e.key==="Enter")checkScramble();};}
+ },50);
+}
+
+function checkScramble(){
+ if(gameOver)return;
+ const inp=document.getElementById("scrambleInput");if(!inp)return;
+ const val=inp.value.trim();if(!val)return;
+ if(val===window.__scrambleAnswer){
+  const elapsed=(performance.now()-window.__scrambleStart)/1000;
+  const points=Math.max(10,Math.round(40-elapsed*2));
+  endGame(points,true,"آفرین! کلمه درست بود: "+window.__scrambleAnswer+" | +"+points+" امتیاز");
+ }else{
+  inp.value="";
+  const el=document.getElementById("scrambleTimer");
+  if(el){el.style.color="#ff6b6b";el.textContent="اشتباه! دوباره تلاش کن";setTimeout(()=>{if(el)el.style.color="var(--muted)";},800);}
+ }
+}
+
+/* ---------------- بازی ۸: تاس حافظه‌ای ---------------- */
+function diceMemoryGame(box){
+ const dice=[Math.floor(Math.random()*6)+1,Math.floor(Math.random()*6)+1,Math.floor(Math.random()*6)+1];
+ const sum=dice.reduce((a,b)=>a+b,0);
+ window.__diceSum=sum;
+ const diceEmoji=["⚀","⚁","⚂","⚃","⚄","⚅"];
+ box.innerHTML=`
+  <p>مجموع سه تاس را به خاطر بسپار!</p>
+  <div id="diceShow" style="font-size:72px;margin:20px 0;letter-spacing:12px;color:var(--purple)">
+   ${dice.map(n=>diceEmoji[n-1]).join(" ")}
+  </div>
+  <p id="diceCountdown" style="color:var(--muted)">۳ ثانیه...</p>
+  <div id="diceInput" class="hidden">
+   <p>مجموع چند بود؟</p>
+   <input id="diceAnswer" type="number" min="3" max="18" placeholder="مجموع..." style="max-width:200px;margin:auto;display:block">
+   <button class="primary" style="margin-top:12px" onclick="checkDice()">ارسال</button>
+  </div>
+ `;
+ let count=3;
+ gameTimer=setInterval(()=>{
+  count--;
+  const el=document.getElementById("diceCountdown");
+  if(el)el.textContent=count+" ثانیه...";
+  if(count<=0){
+   clearInterval(gameTimer);
+   const show=document.getElementById("diceShow");
+   if(show){show.textContent="🎲 🎲 🎲";show.style.color="var(--muted)";}
+   document.getElementById("diceInput").classList.remove("hidden");
+   setTimeout(()=>{try{document.getElementById("diceAnswer").focus();}catch(e){}},50);
+  }
+ },1000);
+}
+
+function checkDice(){
+ if(gameOver)return;
+ const v=Number(document.getElementById("diceAnswer").value);
+ if(!v)return alert("یک عدد وارد کن.");
+ const diff=Math.abs(v-window.__diceSum);
+ if(diff===0)endGame(25,true,"عالی! مجموع "+window.__diceSum+" بود.");
+ else if(diff<=2)endGame(10,false,"نزدیک بود! مجموع صحیح: "+window.__diceSum);
+ else endGame(0,false,"اشتباه! مجموع صحیح: "+window.__diceSum);
 }
 
 function saveName(){const n=document.getElementById("nameInput").value.trim();if(!n)return alert("نام را وارد کن.");data.name=n;save();showToast("نام ذخیره شد.","success");}
