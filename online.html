@@ -71,7 +71,10 @@ footer{text-align:center;color:var(--muted);padding:30px}
 <body>
 <header>
  <a class="logo" href="index.html">چالش<span>‌کلاب</span> 🎮</a>
- <div class="coins">🪙 <span id="coinCount">100</span></div>
+ <div style="display:flex;gap:8px;align-items:center">
+  <div class="coins" id="myTitleBadge" style="font-size:12px;padding:6px 12px">🌱 تازه‌کار</div>
+  <div class="coins">🪙 <span id="coinCount">100</span></div>
+ </div>
 </header>
 
 <nav>
@@ -228,13 +231,22 @@ footer{text-align:center;color:var(--muted);padding:30px}
 /* ============================================================
    🧩 SHARED
    ============================================================ */
-const defaultData={coins:100,score:0,xp:0,played:0,wins:0,name:"بازیکن",avatar:"😎",daily:0,dailyClaimed:false,sound:true,owned:[],equipped:"default"};
+const TITLES=[
+ {id:"rookie",name:"تازه‌کار",emoji:"🌱",level:1},
+ {id:"player",name:"بازیگر",emoji:"🎮",level:5},
+ {id:"pro",name:"حرفه‌ای",emoji:"⚔️",level:10},
+ {id:"master",name:"استاد",emoji:"👑",level:20},
+ {id:"legend",name:"افسانه",emoji:"🐉",level:50}
+];
+const defaultData={coins:100,score:0,xp:0,played:0,wins:0,name:"بازیکن",avatar:"😎",daily:0,dailyClaimed:false,sound:true,owned:[],equipped:"default",title:"rookie"};
 const STORAGE_KEY="challengeClubSave";
 
 function loadData(){
  let raw=null;
  try{raw=JSON.parse(localStorage.getItem(STORAGE_KEY));}catch(e){}
- return {...defaultData,...(raw||{})};
+ const d={...defaultData,...(raw||{})};
+ if(!TITLES.find(t=>t.id===d.title))d.title="rookie";
+ return d;
 }
 let data=loadData();
 
@@ -243,19 +255,25 @@ function save(){
  updateUI();
 }
 
+function getCurrentLevel(){return Math.floor(data.xp/100)+1;}
+function getTitleById(id){return TITLES.find(t=>t.id===id)||TITLES[0];}
+function getTitleDisplay(t){return t?t.emoji+" "+t.name:"";}
+
 function updateUI(){
  const el=id=>document.getElementById(id);
  if(el("coinCount"))el("coinCount").textContent=data.coins;
  if(el("score"))el("score").textContent=data.score;
  if(el("xp"))el("xp").textContent=data.xp;
  if(el("played"))el("played").textContent=data.played;
- if(el("level"))el("level").textContent=Math.floor(data.xp/100)+1;
+ if(el("level"))el("level").textContent=getCurrentLevel();
  if(el("profileName"))el("profileName").textContent=data.name;
- if(el("profileLevel"))el("profileLevel").textContent="سطح "+(Math.floor(data.xp/100)+1);
+ if(el("profileLevel"))el("profileLevel").textContent="سطح "+getCurrentLevel();
  if(el("profileAvatar"))el("profileAvatar").textContent=data.avatar;
  if(el("profileScore"))el("profileScore").textContent=data.score;
  if(el("profilePlayed"))el("profilePlayed").textContent=data.played;
  if(el("profileWins"))el("profileWins").textContent=data.wins;
+ if(el("profileTitle"))el("profileTitle").textContent=getTitleDisplay(getTitleById(data.title));
+ if(el("myTitleBadge"))el("myTitleBadge").textContent=getTitleDisplay(getTitleById(data.title));
  if(el("missionProgress"))el("missionProgress").style.width=Math.min(data.daily/3*100,100)+"%";
  if(el("missionText"))el("missionText").textContent=Math.min(data.daily,3)+" از ۳ بازی";
 }
@@ -297,7 +315,7 @@ function reward(points,win=true){
 
 window.addEventListener("storage",e=>{
  if(e.key===STORAGE_KEY&&e.newValue){
-  try{data={...defaultData,...JSON.parse(e.newValue)};updateUI();}catch(err){}
+  try{data=loadData();updateUI();}catch(err){}
  }
 });
 
@@ -314,6 +332,7 @@ let myMove=null,opponentMove=null;
 let myOnlineScore=0,opponentOnlineScore=0;
 let roundLocked=false;
 let opponentDisplayName="حریف";
+let opponentDisplayTitle="rookie";
 let currentOnlineGame="rps";
 let duelAnswer=null,duelResolved=true;
 const TYPING_WORDS=["برنامه","کتاب","دریا","خورشید","موسیقی","شادی","دوستی","پرواز","آسمان","ابر","پنجره","ستاره","باران","خانه","خیابان","پرنده","کوچک","سفید","سبز","زیبا"];
@@ -592,7 +611,6 @@ function generateColorRound(){
  const options=[...COLOR_PALETTE].sort(()=>Math.random()-.5).map(c=>c.name);
  return {word:word.name,ink:ink.name,inkCode:ink.code,options,answer:ink.name};
 }
-
 function startColorRound(){
  if(!isHost||!conn||!conn.open)return;
  if(colorMatchOver){colorRoundIndex=0;colorMyWins=0;colorOppWins=0;colorMatchOver=false;}
@@ -601,7 +619,6 @@ function startColorRound(){
  broadcast({type:"color-start",round:colorRoundIndex,data});
  showColorProblem(colorRoundIndex,data);
 }
-
 function showColorProblem(round,data){
  if(amISpectator)return;
  colorRoundData=data;colorResolved=false;
@@ -620,7 +637,6 @@ function showColorProblem(round,data){
  });
  document.getElementById("colorResult").textContent="سریع‌ترین پاسخ درست برنده است!";
 }
-
 function submitColorAnswer(choice){
  if(colorResolved||amISpectator||!colorRoundData)return;
  if(choice!==colorRoundData.answer){
@@ -640,7 +656,6 @@ function submitColorAnswer(choice){
   conn.send({type:"color-answer",round:colorRoundIndex,choice});
  }
 }
-
 function applyColorResult(winner,round){
  if(colorResolved)return;
  colorResolved=true;
@@ -671,7 +686,6 @@ function applyColorResult(winner,round){
 
  notifySpectators("دور "+round+": "+(iWon?data.name:opponentDisplayName)+" برنده شد","color");
 }
-
 function newColorRound(){
  if(!conn||!conn.open)return;
  if(isHost)startColorRound();
@@ -781,7 +795,7 @@ function setupRoomConnection(connection,role){
    if(isHost)document.getElementById("hostGameSelect").classList.remove("hidden");
    document.getElementById("copyRoomBtn").classList.add("hidden");
    roomStatus("✅ اتصال برقرار شد!");
-   connection.send({type:"hello",name:data.name});
+   connection.send({type:"hello",name:data.name,title:data.title});
    if(isHost){document.getElementById("roomCodeDisplay").textContent=roomCode;startPingLoop();}
   }else if(role==="spectator"){
    const state={type:"spectator-init",game:currentOnlineGame,hostName:data.name,guestName:opponentDisplayName,hostScore:myOnlineScore,guestScore:opponentOnlineScore};
@@ -820,13 +834,15 @@ function handleRoomMessage(message,fromConn){
  switch(message.type){
   case "hello":
    opponentDisplayName=String(message.name||"حریف").slice(0,20);
-   document.getElementById("opponentName").textContent="حریف: "+opponentDisplayName;
+   opponentDisplayTitle=TITLES.find(t=>t.id===message.title)?message.title:"rookie";
+   document.getElementById("opponentName").textContent="حریف: "+opponentDisplayName+" "+getTitleDisplay(getTitleById(opponentDisplayTitle));
    showToast(opponentDisplayName+" به اتاق پیوست 👋","success");
-   if(isHost&&conn&&conn.open){try{conn.send({type:"welcome",name:data.name});}catch(e){}}
+   if(isHost&&conn&&conn.open){try{conn.send({type:"welcome",name:data.name,title:data.title});}catch(e){}}
    break;
   case "welcome":
    opponentDisplayName=String(message.name||"حریف").slice(0,20);
-   document.getElementById("opponentName").textContent="حریف: "+opponentDisplayName;
+   opponentDisplayTitle=TITLES.find(t=>t.id===message.title)?message.title:"rookie";
+   document.getElementById("opponentName").textContent="حریف: "+opponentDisplayName+" "+getTitleDisplay(getTitleById(opponentDisplayTitle));
    showToast(opponentDisplayName+" به اتاق پیوست 👋","success");
    break;
   case "spectator-init":
@@ -1005,7 +1021,7 @@ function cleanupRoom(resetUI=true){
  if(conn){try{conn.close();}catch(e){}conn=null;}
  if(peer){try{peer.destroy();}catch(e){}peer=null;}
  roomCode="";myMove=null;opponentMove=null;roundLocked=false;
- myOnlineScore=0;opponentOnlineScore=0;opponentDisplayName="حریف";
+ myOnlineScore=0;opponentOnlineScore=0;opponentDisplayName="حریف";opponentDisplayTitle="rookie";
  currentOnlineGame="rps";duelAnswer=null;duelResolved=true;
  typingWord="";typingResolved=true;guessSecret=null;guessResolved=true;
  colorRoundIndex=0;colorMyWins=0;colorOppWins=0;colorResolved=true;colorRoundData=null;colorMatchOver=false;
