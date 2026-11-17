@@ -69,7 +69,10 @@ footer{text-align:center;color:var(--muted);padding:30px}
 <body>
 <header>
  <a class="logo" href="index.html">چالش<span>‌کلاب</span> 🎮</a>
- <div class="coins">🪙 <span id="coinCount">100</span></div>
+ <div style="display:flex;gap:8px;align-items:center">
+  <div class="coins" id="myTitleBadge" style="font-size:12px;padding:6px 12px">🌱 تازه‌کار</div>
+  <div class="coins">🪙 <span id="coinCount">100</span></div>
+ </div>
 </header>
 
 <nav>
@@ -132,12 +135,20 @@ footer{text-align:center;color:var(--muted);padding:30px}
  <div class="panel">
   <div class="profile-head">
    <div class="avatar" id="profileAvatar">😎</div>
-   <div><h2 id="profileName">بازیکن</h2><p id="profileLevel">سطح ۱</p></div>
+   <div>
+    <h2 id="profileName">بازیکن</h2>
+    <p id="profileLevel">سطح ۱</p>
+    <p id="profileTitle" style="color:var(--cyan);font-size:13px;font-weight:700;margin:2px 0 0">🌱 تازه‌کار</p>
+   </div>
   </div>
   <div style="margin-top:20px">
    <label>نام بازیکن</label>
    <input id="nameInput" maxlength="20" placeholder="نام خودت رو وارد کن">
    <button class="primary" style="margin-top:10px" onclick="saveName()">ذخیره نام</button>
+  </div>
+  <div style="margin-top:18px">
+   <label>عنوان</label>
+   <div id="titleSelector" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
   </div>
  </div>
  <h3 class="section-title">آمار من</h3>
@@ -158,15 +169,24 @@ footer{text-align:center;color:var(--muted);padding:30px}
 
 <script>
 /* ============================================================
-   🧩 SHARED — data, save, updateUI, AudioFX, toast, reward
+   🧩 SHARED
    ============================================================ */
-const defaultData={coins:100,score:0,xp:0,played:0,wins:0,name:"بازیکن",avatar:"😎",daily:0,dailyClaimed:false,sound:true,owned:[],equipped:"default"};
+const TITLES=[
+ {id:"rookie",name:"تازه‌کار",emoji:"🌱",level:1},
+ {id:"player",name:"بازیگر",emoji:"🎮",level:5},
+ {id:"pro",name:"حرفه‌ای",emoji:"⚔️",level:10},
+ {id:"master",name:"استاد",emoji:"👑",level:20},
+ {id:"legend",name:"افسانه",emoji:"🐉",level:50}
+];
+const defaultData={coins:100,score:0,xp:0,played:0,wins:0,name:"بازیکن",avatar:"😎",daily:0,dailyClaimed:false,sound:true,owned:[],equipped:"default",title:"rookie"};
 const STORAGE_KEY="challengeClubSave";
 
 function loadData(){
  let raw=null;
  try{raw=JSON.parse(localStorage.getItem(STORAGE_KEY));}catch(e){}
- return {...defaultData,...(raw||{})};
+ const d={...defaultData,...(raw||{})};
+ if(!TITLES.find(t=>t.id===d.title))d.title="rookie";
+ return d;
 }
 let data=loadData();
 
@@ -175,19 +195,25 @@ function save(){
  updateUI();
 }
 
+function getCurrentLevel(){return Math.floor(data.xp/100)+1;}
+function getTitleById(id){return TITLES.find(t=>t.id===id)||TITLES[0];}
+function getTitleDisplay(t){return t?t.emoji+" "+t.name:"";}
+
 function updateUI(){
  const el=id=>document.getElementById(id);
  if(el("coinCount"))el("coinCount").textContent=data.coins;
  if(el("score"))el("score").textContent=data.score;
  if(el("xp"))el("xp").textContent=data.xp;
  if(el("played"))el("played").textContent=data.played;
- if(el("level"))el("level").textContent=Math.floor(data.xp/100)+1;
+ if(el("level"))el("level").textContent=getCurrentLevel();
  if(el("profileName"))el("profileName").textContent=data.name;
- if(el("profileLevel"))el("profileLevel").textContent="سطح "+(Math.floor(data.xp/100)+1);
+ if(el("profileLevel"))el("profileLevel").textContent="سطح "+getCurrentLevel();
  if(el("profileAvatar"))el("profileAvatar").textContent=data.avatar;
  if(el("profileScore"))el("profileScore").textContent=data.score;
  if(el("profilePlayed"))el("profilePlayed").textContent=data.played;
  if(el("profileWins"))el("profileWins").textContent=data.wins;
+ if(el("profileTitle"))el("profileTitle").textContent=getTitleDisplay(getTitleById(data.title));
+ if(el("myTitleBadge"))el("myTitleBadge").textContent=getTitleDisplay(getTitleById(data.title));
  if(el("missionProgress"))el("missionProgress").style.width=Math.min(data.daily/3*100,100)+"%";
  if(el("missionText"))el("missionText").textContent=Math.min(data.daily,3)+" از ۳ بازی";
 }
@@ -231,9 +257,35 @@ function reward(points,win=true){
 
 window.addEventListener("storage",e=>{
  if(e.key===STORAGE_KEY&&e.newValue){
-  try{data={...defaultData,...JSON.parse(e.newValue)};updateUI();}catch(err){}
+  try{data=loadData();updateUI();}catch(err){}
  }
 });
+
+/* --- Titles --- */
+function setTitle(id){
+ const t=TITLES.find(x=>x.id===id);
+ if(!t)return;
+ if(t.level>getCurrentLevel())return showToast("به سطح "+t.level+" نیاز داری","warn");
+ data.title=id;save();renderTitles();
+ showToast("عنوان انتخاب شد: "+getTitleDisplay(t),"success");
+}
+function renderTitles(){
+ const box=document.getElementById("titleSelector");
+ if(!box)return;
+ const lvl=getCurrentLevel();
+ box.innerHTML=TITLES.map(t=>{
+  const unlocked=t.level<=lvl;
+  const active=data.title===t.id;
+  return `<button type="button" onclick="setTitle('${t.id}')" style="
+   background:${active?"linear-gradient(120deg,var(--purple),var(--pink))":(unlocked?"#292943":"#1a1a2e")};
+   color:${unlocked?"white":"#666"};
+   padding:8px 14px;border-radius:10px;font-weight:700;font-size:13px;
+   cursor:${unlocked?"pointer":"not-allowed"};
+   border:1px solid ${active?"var(--purple)":"var(--border)"};
+   ${!unlocked?"opacity:.55;":""}
+  " ${!unlocked?"disabled":""}>${t.emoji} ${t.name}${!unlocked?" · سطح "+t.level:""}</button>`;
+ }).join("");
+}
 
 /* ============================================================
    🎮 MAIN GAME
@@ -244,7 +296,7 @@ function showPage(id,btn){
  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
  if(btn)btn.classList.add("active");
  if(id==="competition")renderLeaderboard();
- if(id==="profile"){renderShop();const ni=document.getElementById("nameInput");if(ni)ni.value=data.name;}
+ if(id==="profile"){renderShop();renderTitles();const ni=document.getElementById("nameInput");if(ni)ni.value=data.name;}
 }
 
 const GAMES={
@@ -472,8 +524,19 @@ function checkDice(){
 function saveName(){const n=document.getElementById("nameInput").value.trim();if(!n)return alert("نام را وارد کن.");data.name=n;save();showToast("نام ذخیره شد.","success");}
 
 function renderLeaderboard(){
- const list=[{name:"Shadow",score:1250,avatar:"🥷"},{name:"Star",score:980,avatar:"🌟"},{name:"King",score:760,avatar:"👑"},{name:data.name,score:data.score,avatar:data.avatar}].sort((a,b)=>b.score-a.score);
- document.getElementById("leaderboard").innerHTML=list.map((p,i)=>`<div class="list-item"><span>${["🥇","🥈","🥉","🏅"][i]} ${p.avatar} ${escapeHTML(p.name)}</span><b>${p.score} امتیاز</b></div>`).join("");
+ const list=[
+  {name:"Shadow",score:1250,avatar:"🥷",title:"legend"},
+  {name:"Star",score:980,avatar:"🌟",title:"master"},
+  {name:"King",score:760,avatar:"👑",title:"pro"},
+  {name:data.name,score:data.score,avatar:data.avatar,title:data.title}
+ ].sort((a,b)=>b.score-a.score);
+ document.getElementById("leaderboard").innerHTML=list.map((p,i)=>{
+  const t=getTitleById(p.title);
+  return `<div class="list-item">
+   <span>${["🥇","🥈","🥉","🏅"][i]} ${p.avatar} ${escapeHTML(p.name)} <small style="color:var(--cyan);font-weight:700;margin-right:4px">${getTitleDisplay(t)}</small></span>
+   <b>${p.score} امتیاز</b>
+  </div>`;
+ }).join("");
 }
 
 const shopItems=[{id:"avatar1",name:"آواتار فضایی",icon:"👨‍🚀",price:50},{id:"avatar2",name:"آواتار ربات",icon:"🤖",price:80},{id:"avatar3",name:"آواتار اژدها",icon:"🐉",price:120},{id:"avatar4",name:"آواتار تاج‌دار",icon:"🤴",price:150}];
@@ -490,7 +553,7 @@ function buyItem(id){
  data.coins-=item.price;data.owned.push(id);data.avatar=item.icon;save();renderShop();AudioFX.win();showToast("خرید با موفقیت انجام شد!","success");
 }
 function toggleSound(){if(data.sound)AudioFX.click();data.sound=!data.sound;save();if(data.sound)AudioFX.click();showToast(data.sound?"صدا روشن شد.":"صدا خاموش شد.","info");}
-function resetData(){if(!confirm("همه امتیازها و اطلاعات پاک شوند؟"))return;data={...defaultData};save();renderShop();showToast("اطلاعات بازنشانی شد.","info");}
+function resetData(){if(!confirm("همه امتیازها و اطلاعات پاک شوند؟"))return;data={...defaultData};save();renderShop();renderTitles();showToast("اطلاعات بازنشانی شد.","info");}
 
 /* ============================================================
    📲 PWA
